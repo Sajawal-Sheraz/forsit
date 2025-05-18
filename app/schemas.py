@@ -18,6 +18,7 @@ class ProductOut(BaseModel):
     name: str
     category: str
     price: float
+    created_at: datetime
 
     class Config:
         orm_mode = True
@@ -39,7 +40,7 @@ class PaginatedResponse(GenericModel, Generic[T]):
 class InventoryOut(BaseModel):
     product_id: int
     quantity: int
-    last_updated: datetime
+    updated_at: datetime
 
     class Config:
         orm_mode = True
@@ -47,10 +48,15 @@ class InventoryOut(BaseModel):
 
 class SaleOut(BaseModel):
     id: int
-    product_id: int
     quantity: int
     total_price: float
     timestamp: datetime
+    product: ProductOut
 
     class Config:
         orm_mode = True
+
+
+class InventoryUpdate(BaseModel):
+    product_id: int
+    quantity: int

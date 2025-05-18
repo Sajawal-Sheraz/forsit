@@ -1,18 +1,18 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from app.models import Inventory, Product
-from app.schemas import InventoryOut
+from app.views.inventory import get_inventory_status_view, update_inventory_view
 from database import get_db
-from typing import Optional, List
+from app.schemas import InventoryOut, InventoryUpdate, StandardResponse
+from pydantic import BaseModel
 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[InventoryOut])
-def get_inventory_status(db: Session = Depends(get_db)):
-    return db.query(Inventory).all()
+@router.get("/", response_model=StandardResponse[list[InventoryOut]])
+def get_inventory_status(threshold: int = None, db: Session = Depends(get_db)):
+    return get_inventory_status_view(db, low_stock_threshold=threshold)
 
 
-@router.get("/low-stock", response_model=List[InventoryOut])
-def get_low_stock_alerts(threshold: int = 10, db: Session = Depends(get_db)):
-    return db.query(Inventory).filter(Inventory.quantity < threshold).all()
+@router.post("/update", response_model=StandardResponse[InventoryOut])
+def update_inventory(data: InventoryUpdate, db: Session = Depends(get_db)):
+    return update_inventory_view(data, db)

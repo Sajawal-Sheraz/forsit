@@ -1,47 +1,51 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func
-from datetime import datetime, timedelta
-from app.models import Sale
-from app.schemas import SaleOut
+from typing import Optional
+from datetime import datetime, date
+from app.views.sales import (
+    compare_two_categories_revenue,
+    get_sales_summary_view,
+    compare_revenue_view,
+    filter_sales_view,
+)
 from database import get_db
-from typing import List
+from app.schemas import StandardResponse, SaleOut
+from typing import List, Dict
 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[SaleOut])
-def get_sales(
-    start_date: datetime = Query(...),
-    end_date: datetime = Query(...),
+@router.get("/summary", response_model=StandardResponse[List[Dict[str, float]]])
+def sales_summary(
+    interval: str = Query("daily", enum=["daily", "weekly", "monthly", "yearly"]),
     db: Session = Depends(get_db),
 ):
-    return (
-        db.query(Sale)
-        .filter(Sale.timestamp >= start_date, Sale.timestamp <= end_date)
-        .all()
-    )
+    return get_sales_summary_view(interval, db)
 
 
-@router.get("/revenue")
-def get_revenue_summary(
-    period: str = Query("daily", enum=["daily", "weekly", "monthly", "yearly"]),
+@router.get("/compare", response_model=StandardResponse[dict])
+def compare_revenue(
+    start1: date,
+    end1: date,
+    start2: date,
+    end2: date,
+    category: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    interval_map = {
-        "daily": func.date(Sale.timestamp),
-        "weekly": func.yearweek(Sale.timestamp),
-        "monthly": func.date_format(Sale.timestamp, "%Y-%m"),
-        "yearly": func.year(Sale.timestamp),
-    }
-    group_by_expr = interval_map.get(period)
+    return compare_revenue_view(start1, end1, start2, end2, category, db)
 
-    data = (
-        db.query(
-            group_by_expr.label("period"), func.sum(Sale.total_price).label("revenue")
-        )
-        .group_by(group_by_expr)
-        .order_by(group_by_expr)
-        .all()
-    )
-    return data
+
+@router.get("/compare-category", response_model=StandardResponse[dict])
+def compare_categories(category1: str, category2: str, db: Session = Depends(get_db)):
+    return compare_two_categories_revenue(db, category1, category2)
+
+
+@router.get("/filter", response_model=StandardResponse[list[SaleOut]])
+def filter_sales(
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    product_id: Optional[int] = None,
+    category: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    return filter_sales_view(start_date, end_date, product_id, category, db)
